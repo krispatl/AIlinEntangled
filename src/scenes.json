@@ -1,0 +1,138 @@
+[
+  {
+    "id": "orbital",
+    "title": "Orbital lattice",
+    "description": "Interlocking orbits, suspended in light.",
+    "image": "/geometry/orbital.webp",
+    "kind": "particles",
+    "source": "1c.png"
+  },
+  {
+    "id": "torus",
+    "title": "Torus field",
+    "description": "A luminous field folding into itself.",
+    "image": "/geometry/torus.webp",
+    "kind": "particles",
+    "source": "1a.png"
+  },
+  {
+    "id": "seed",
+    "title": "Seed of light",
+    "description": "Intersecting circles around a quiet center.",
+    "image": "/geometry/seed.webp",
+    "kind": "particles",
+    "source": "1b.png"
+  },
+  {
+    "id": "double",
+    "title": "Double torus",
+    "description": "Two currents orbiting a shared axis.",
+    "image": "/geometry/double.webp",
+    "kind": "particles",
+    "source": "1d.png"
+  },
+  {
+    "id": "drift",
+    "title": "Polyhedral drift",
+    "description": "Weightless crystalline constellations.",
+    "image": "/geometry/drift.webp",
+    "kind": "particles",
+    "source": "1.png"
+  },
+  {
+    "id": "nave",
+    "title": "Crystal nave",
+    "description": "A procession through luminous architecture.",
+    "image": "/geometry/nave.webp",
+    "kind": "particles",
+    "source": "2.png"
+  },
+  {
+    "id": "tree",
+    "title": "Tree of life",
+    "description": "Branching pathways, rooted in motion.",
+    "image": "/geometry/tree.webp",
+    "kind": "particles",
+    "source": "3.png"
+  },
+  {
+    "id": "metatron",
+    "title": "Metatron chamber",
+    "description": "A geometric constellation inside a vaulted space.",
+    "image": "/geometry/metatron.webp",
+    "kind": "particles",
+    "source": "4.png"
+  },
+  {
+    "id": "halo",
+    "title": "Halo",
+    "description": "A suspended ring of individual sparks.",
+    "image": "/geometry/halo.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 06_12_18 PM.png"
+  },
+  {
+    "id": "horizon",
+    "title": "Horizon ring",
+    "description": "A delicate ring hovering above the ground.",
+    "image": "/geometry/horizon.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 06_16_45 PM.png"
+  },
+  {
+    "id": "vaults",
+    "title": "Vaults of light",
+    "description": "Repeating arches reaching into darkness.",
+    "image": "/geometry/vaults.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 06_42_05 PM.png"
+  },
+  {
+    "id": "threshold",
+    "title": "Threshold",
+    "description": "A single radiant line between two worlds.",
+    "image": "/geometry/threshold.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 06_43_54 PM.png"
+  },
+  {
+    "id": "tesseract",
+    "title": "Tesseract",
+    "description": "Nested volumes held by luminous threads.",
+    "image": "/geometry/tesseract.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 06_55_44 PM.png"
+  },
+  {
+    "id": "platonic",
+    "title": "Platonic constellation",
+    "description": "Three forms, one shared field.",
+    "image": "/geometry/platonic.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 06_55_47 PM.png"
+  },
+  {
+    "id": "ascending",
+    "title": "Ascending forms",
+    "description": "Crystal structures dissolving into the air.",
+    "image": "/geometry/ascending.webp",
+    "kind": "particles",
+    "source": "ChatGPT Image Mar 12, 2026, 08_42_34 PM.png"
+  },
+  {
+    "id": "infinite",
+    "title": "Infinite lattice",
+    "description": "The geometry returns, infinitely connected.",
+    "image": "/geometry/infinite.webp",
+    "kind": "particles",
+    "source": "fractal.png"
+  },
+  {
+    "id": "silhouette",
+    "title": "The body remains",
+    "description": "Silhouette and edges. Nothing between the dancer and the light.",
+    "image": "",
+    "kind": "silhouette",
+    "source": "Live webcam segmentation and Sobel edge detection"
+  }
+]

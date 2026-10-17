@@ -1,0 +1,12 @@
+node_modules/
+public/vision/
+dist/
+.vercel/
+.env*
+!.env.example
+*.log
+test-results/
+work-camera-results/
+work-vision-results/
+playwright-report/
+.DS_Store

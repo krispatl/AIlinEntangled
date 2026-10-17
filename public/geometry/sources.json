@@ -1,0 +1,101 @@
+{
+  "assets": [
+    {
+      "id": "orbital",
+      "original": "1c.png",
+      "sha256": "ea52a65ee74f2c261fe015512da9c631327ca9be2dbc85ca4dfcdc8eae343b5c",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "torus",
+      "original": "1a.png",
+      "sha256": "a7c77edf1e1d160bde79e5b672540352467ea3b3d3a1467f9ed283d569d2e01b",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "seed",
+      "original": "1b.png",
+      "sha256": "b1f3db21dd15590e02ffd454dba21e2e3d67a97975ad07207e66cd73bef0993e",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "double",
+      "original": "1d.png",
+      "sha256": "8595b18b6621538e75089d196b2d6f60a2bebd678acf63755f7db310e8016305",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "drift",
+      "original": "1.png",
+      "sha256": "b97e1105b64d63fb3cb7fa630293457baa918fe60f4fbcedaca25b6de2837dd3",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "nave",
+      "original": "2.png",
+      "sha256": "d7df4cc243646236c2622883049dace37c1ed1ee5d993839e2a2a70f923a7b78",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "tree",
+      "original": "3.png",
+      "sha256": "bfcd1704b5ecb59b08444550929e48b0fb13470a7cf00c2510e48486f8f46806",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "metatron",
+      "original": "4.png",
+      "sha256": "eb980b5e04ada0ef5910f3f8c6d11854812a08012ee379f4d1eb78d589806744",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "halo",
+      "original": "ChatGPT Image Mar 12, 2026, 06_12_18 PM.png",
+      "sha256": "4196b18cdb766bb925434d5f3e094c34d004296086d6a9b2a15e5665d88b7cad",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "horizon",
+      "original": "ChatGPT Image Mar 12, 2026, 06_16_45 PM.png",
+      "sha256": "de229fd312d6acef3c54be06cf906acc7889d78e988930f6e12873a81a7d4ba6",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "vaults",
+      "original": "ChatGPT Image Mar 12, 2026, 06_42_05 PM.png",
+      "sha256": "30cb9b25ed8e3d095be63bf562680459628c17d6f41468b2b9b3f240b4cf1469",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "threshold",
+      "original": "ChatGPT Image Mar 12, 2026, 06_43_54 PM.png",
+      "sha256": "61911d4b6c154190ffe4fef6ce1a507e6523b0edfecddd5b8aef677cc574833d",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "tesseract",
+      "original": "ChatGPT Image Mar 12, 2026, 06_55_44 PM.png",
+      "sha256": "f772031ae4049e43583207d78a84b79e238018f82e1c75cce35d8d909f516d17",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "platonic",
+      "original": "ChatGPT Image Mar 12, 2026, 06_55_47 PM.png",
+      "sha256": "d698681a4f8c9d3c82fadb6cd83581dc1504233ea750125d5168193e3673a674",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "ascending",
+      "original": "ChatGPT Image Mar 12, 2026, 08_42_34 PM.png",
+      "sha256": "5574ab1831e92d8eb1beea6dcf44c17978713ab8ce1ce4d3dea01ded716eef0f",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    },
+    {
+      "id": "infinite",
+      "original": "fractal.png",
+      "sha256": "027772d5aac3a1aa9f73aaeeb3e8e4db3af3f070f696ff85522e91cfd9cb294a",
+      "conversion": "Original dimensions; grayscale; WebP quality 95"
+    }
+  ],
+  "duplicate_omitted": "ChatGPT Image Mar 12, 2026, 05_53_30 PM.png is byte-identical to 3.png"
+}
