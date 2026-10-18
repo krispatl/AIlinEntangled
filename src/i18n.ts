@@ -1,5 +1,14 @@
 export type Language = 'en' | 'es';
 const en = {
+  atmosphere: 'Atmosphere', timing: 'Timing', drift: 'Particle drift', breathing: 'Breathing amount', breathPeriod: 'Breathing cycle', trails: 'Motion trails',
+  handIntensity: 'Hand intensity', footIntensity: 'Foot intensity', response: 'Dancer response', repel: 'Repel / scatter', attract: 'Attract / gather',
+  atmosphereHint: 'Drift floats particles around their geometry. Breathing slowly expands and contracts it. Both work without a camera; zero turns them off.',
+  trailsHint: 'Trails fade over the selected time. They also work on the silhouette. Zero gives a clean image.',
+  editLive: 'Editing live scene', sceneSaved: 'This look is saved with the live scene.', copyAll: 'Apply look to all scenes', copiedAll: 'The live look was copied to every scene.',
+  timedCues: 'Timed cues', timerStart: 'Start sequence', timerPause: 'Pause sequence', timerResume: 'Resume sequence', timerReset: 'Reset timer',
+  timerManual: 'Manual', timerRunning: 'Running', timerPaused: 'Paused', timerHeld: 'Held', timerFinished: 'Finished',
+  timingHint: 'Set each scene’s duration. The sequence starts at the live scene and ends after the finale. GO returns to manual control. Blackout and freeze hold the countdown.',
+  duration: 'Duration', seconds: 'seconds', particleOnly: 'Drift, breathing and limb forces affect particle scenes. Trails also affect the silhouette.',
   console: 'PERFORMANCE CONSOLE', projection: 'Open projection', connected: 'Projection connected', disconnected: 'Projection offline',
   scenes: 'Scene sequence', scenesSub: '16 geometries · 1 body', live: 'LIVE', armed: 'READY', finale: 'FINALE',
   cue: 'Cue', go: 'GO TO SCENE', previous: 'Previous', next: 'Next', preview: 'PROGRAM MONITOR',
@@ -24,10 +33,19 @@ const en = {
   timeout: 'Tracking startup timed out. Reload and try again in Chrome or Edge.', interrupted: 'Tracking interrupted. Stop and restart the camera.',
   noBody: 'Waiting for a dancer', tracking: 'Tracking dancer', local: 'LOCAL PROCESSING', handFine: 'Hand refinement',
   support: 'Use a recent Chrome or Edge browser with WebGL enabled.', popup: 'Projection could not open. Allow pop-ups for this site.',
-  reset: 'Reset look', output: 'OUTPUT', language: 'Language', fullscreen: 'Fullscreen projection',
+  reset: 'Reset this scene', output: 'OUTPUT', language: 'Language', fullscreen: 'Fullscreen projection',
   importHint: 'Import show settings', cameraNumber: 'Camera', notices: 'Status', storage: 'Browser storage is unavailable. Export your show to keep it.',
 };
 const es: Record<keyof typeof en, string> = {
+  atmosphere: 'Atmósfera', timing: 'Tiempos', drift: 'Deriva de partículas', breathing: 'Amplitud de respiración', breathPeriod: 'Ciclo de respiración', trails: 'Estelas de movimiento',
+  handIntensity: 'Intensidad de manos', footIntensity: 'Intensidad de pies', response: 'Respuesta al bailarín', repel: 'Repeler / dispersar', attract: 'Atraer / reunir',
+  atmosphereHint: 'La deriva hace flotar las partículas alrededor de su geometría. La respiración la expande y contrae lentamente. Ambas funcionan sin cámara; cero las desactiva.',
+  trailsHint: 'Las estelas se desvanecen durante el tiempo elegido. También funcionan en la silueta. Cero da una imagen limpia.',
+  editLive: 'Editando escena en vivo', sceneSaved: 'Esta apariencia se guarda con la escena en vivo.', copyAll: 'Aplicar apariencia a todas', copiedAll: 'Se copió la apariencia en vivo a todas las escenas.',
+  timedCues: 'Escenas temporizadas', timerStart: 'Iniciar secuencia', timerPause: 'Pausar secuencia', timerResume: 'Reanudar secuencia', timerReset: 'Reiniciar tiempo',
+  timerManual: 'Manual', timerRunning: 'En marcha', timerPaused: 'En pausa', timerHeld: 'En espera', timerFinished: 'Finalizada',
+  timingHint: 'Define la duración de cada escena. La secuencia comienza en la escena en vivo y termina después del final. ACTIVAR ESCENA devuelve el control manual. Oscurecer y congelar detienen la cuenta atrás.',
+  duration: 'Duración', seconds: 'segundos', particleOnly: 'La deriva, la respiración y las fuerzas de manos y pies afectan a las partículas. Las estelas también afectan a la silueta.',
   console: 'CONSOLA DE ESCENA', projection: 'Abrir proyección', connected: 'Proyección conectada', disconnected: 'Proyección desconectada',
   scenes: 'Secuencia de escenas', scenesSub: '16 geometrías · 1 cuerpo', live: 'EN VIVO', armed: 'LISTA', finale: 'FINAL',
   cue: 'Escena', go: 'ACTIVAR ESCENA', previous: 'Anterior', next: 'Siguiente', preview: 'MONITOR DE SALIDA',
@@ -52,7 +70,7 @@ const es: Record<keyof typeof en, string> = {
   timeout: 'El seguimiento tardó demasiado en iniciar. Recarga y prueba en Chrome o Edge.', interrupted: 'Seguimiento interrumpido. Detén y reinicia la cámara.',
   noBody: 'Esperando a una persona', tracking: 'Siguiendo al bailarín', local: 'PROCESAMIENTO LOCAL', handFine: 'Precisión de manos',
   support: 'Usa una versión reciente de Chrome o Edge con WebGL activado.', popup: 'No se pudo abrir la proyección. Permite las ventanas emergentes de este sitio.',
-  reset: 'Restablecer apariencia', output: 'SALIDA', language: 'Idioma', fullscreen: 'Proyección en pantalla completa',
+  reset: 'Restablecer esta escena', output: 'SALIDA', language: 'Idioma', fullscreen: 'Proyección en pantalla completa',
   importHint: 'Importar ajustes de función', cameraNumber: 'Cámara', notices: 'Estado', storage: 'El almacenamiento del navegador no está disponible. Exporta tu función para conservarla.',
 };
 export type Key = keyof typeof en;

@@ -11,11 +11,16 @@ export interface Calibration { mirror: boolean; left: number; right: number; top
 export interface Look {
   particles: number; pointSize: number; bloom: number; brightness: number;
   scatter: number; radius: number; returnSpeed: number; transition: number;
+  drift: number; breathing: number; breathPeriod: number; trails: number;
+  handIntensity: number; footIntensity: number; response: 'repel' | 'attract';
   silhouetteFill: number; outline: number; detail: number;
 }
+export type NumericLookKey = Exclude<keyof Look, 'response'>;
 export interface ShowState {
-  version: 1; sceneId: string; order: string[]; labels: Record<string, string>;
+  version: 2; sceneId: string; order: string[]; labels: Record<string, string>;
   look: Look; calibration: Calibration; blackout: boolean; freeze: boolean;
+  sceneLooks: Record<string, Look>; durations: Record<string, number>;
+  motion: { anchor: number; elapsed: number };
 }
 export type BusMessage = { type: 'state'; state: ShowState } | { type: 'frame'; frame: TrackingFrame }
   | { type: 'hello' } | { type: 'heartbeat'; fps: number; error?: string };

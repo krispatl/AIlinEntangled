@@ -1,16 +1,20 @@
 import { StageRenderer } from './renderer';
 import { WebcamTracker, type TrackerStatus } from './tracker';
-import { defaultState, loadState, persistState, reorderScene, sanitizeState, sceneById, session, limits } from './state';
+import { defaultState, defaultLook, loadState, persistState, reorderScene, sanitizeState, sceneById, session, limits, activateScene, copyLookToAll } from './state';
 import { demoFrame } from './demo';
 import { t, spanishScenes, type Key, type Language } from './i18n';
-import type { BusMessage, Look, TrackingFrame } from './types';
+import type { BusMessage, NumericLookKey, TrackingFrame } from './types';
+import { toggleFreeze } from './motion';
+import { CueTimer } from './cue-timer';
 
 const escape = (text: string) => text.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function mountController(root: HTMLElement) {
-  let state = loadState(), armed = state.sceneId, tab: 'movement'|'appearance'|'camera' = 'movement';
+  let state = loadState(), armed = state.sceneId, tab: 'movement'|'atmosphere'|'appearance'|'camera'|'timing' = 'movement';
+  const cueTimer=new CueTimer();cueTimer.reset(state);
   let language: Language = 'en'; try { if(localStorage.getItem('ailin-language')==='es')language='es'; } catch {}
   let status: TrackerStatus = {phase:'idle',message:''}, devices: MediaDeviceInfo[] = [], selectedDevice = '', refine = true;
   let demo = false, demoTimer = 0, lastFrame: TrackingFrame|undefined, lastFrameAt = 0, heartbeatAt = 0, stageFps = 0;
+  let projectedFrame: TrackingFrame|undefined;
   let notice = '', graphicsError = '', preview: StageRenderer|undefined, disposed = false;
   const tr = (key: Key) => t(language,key);
   const title = (id: string) => state.labels[id] || (language==='es' ? spanishScenes[id] : sceneById.get(id)?.title) || id;
@@ -26,7 +30,9 @@ export function mountController(root: HTMLElement) {
     preview?.applyState(state);bus.postMessage({type:'state',state});
   }
   function onFrame(frame: TrackingFrame) {
-    lastFrame=frame;lastFrameAt=performance.now();preview?.receiveFrame(frame);bus.postMessage({type:'frame',frame});drawTracking(frame);
+    lastFrame=frame;lastFrameAt=performance.now();
+    if(!state.freeze){projectedFrame=frame;preview?.receiveFrame(frame);bus.postMessage({type:'frame',frame});}
+    drawTracking(frame);
   }
   function drawTracking(frame: TrackingFrame) {
     const ctx=overlay.getContext('2d')!,w=overlay.width,h=overlay.height;
@@ -52,28 +58,53 @@ export function mountController(root: HTMLElement) {
     const key:Key=message.startsWith('Opening')?'opening':message.startsWith('Loading')?'loading':message.includes('denied')?'denied':message.includes('No webcam')?'noCamera':message.includes('in use')?'busy':message.includes('disconnected')?'disconnectedCamera':message.includes('timed out')?'timeout':message.includes('interrupted')?'interrupted':'failed';
     return tr(key);
   }
-  function slider(key: keyof Look, step = .05) {
-    return `<label class="slider-label" for="look-${key}"><span>${tr(key)}</span><output id="value-${key}">${format(state.look[key])}</output></label><input id="look-${key}" data-look="${key}" type="range" min="${limits[key][0]}" max="${limits[key][1]}" step="${step}" value="${state.look[key]}">`;
+  function lookValue(key:NumericLookKey) {
+    const suffix=key==='drift'||key==='breathing'?'%':key==='trails'||key==='breathPeriod'||key==='transition'?' s':key==='handIntensity'||key==='footIntensity'?'×':'';
+    return format(state.look[key])+suffix;
+  }
+  function slider(key: NumericLookKey, step = .05) {
+    return `<label class="slider-label" for="look-${key}"><span>${tr(key)}</span><output id="value-${key}">${lookValue(key)}</output></label><input id="look-${key}" data-look="${key}" type="range" min="${limits[key][0]}" max="${limits[key][1]}" step="${step}" value="${state.look[key]}">`;
   }
   function format(value:number){return Number.isInteger(value)?String(value):value.toFixed(2).replace(/0$/,'');}
   function settings() {
-    if(tab==='movement')return `<p class="panel-copy">${tr('movementHint')}</p>${slider('scatter')}${slider('radius',.01)}${slider('returnSpeed',.1)}${slider('transition',.1)}<div class="setting-divider"></div><div class="switch-row"><span>${tr('mirror')}</span><input type="checkbox" id="mirror" ${state.calibration.mirror?'checked':''} aria-label="${tr('mirror')}"></div>`;
-    if(tab==='appearance')return `${slider('bloom')}${slider('pointSize')}${slider('brightness')}<label class="slider-label" for="density">${tr('particles')}</label><select id="density">${[12000,24000,48000,72000,90000].map(n=>`<option value="${n}" ${state.look.particles===n?'selected':''}>${n.toLocaleString(language)}</option>`).join('')}</select><div class="setting-divider"></div>${slider('silhouetteFill',.01)}${slider('outline',.1)}${slider('detail')}<button class="text-button" data-action="reset-look">↺ ${tr('reset')}</button>`;
+    if(tab==='movement')return `<p class="panel-copy">${tr('movementHint')}</p><label class="field-label" for="response">${tr('response')}</label><select id="response"><option value="repel" ${state.look.response==='repel'?'selected':''}>${tr('repel')}</option><option value="attract" ${state.look.response==='attract'?'selected':''}>${tr('attract')}</option></select>${slider('scatter')}${slider('handIntensity')}${slider('footIntensity')}${slider('radius',.01)}${slider('returnSpeed',.1)}<div class="setting-divider"></div><div class="switch-row"><span>${tr('mirror')}</span><input type="checkbox" id="mirror" ${state.calibration.mirror?'checked':''} aria-label="${tr('mirror')}"></div>`;
+    if(tab==='atmosphere')return `<p class="panel-copy">${tr('atmosphereHint')}</p>${slider('drift',1)}${slider('breathing',1)}${slider('breathPeriod',.5)}<div class="setting-divider"></div>${slider('trails')}${slider('transition',.1)}<p class="panel-copy">${tr('trailsHint')}</p>`;
+    if(tab==='appearance')return `${slider('bloom')}${slider('pointSize')}${slider('brightness')}<label class="slider-label" for="density">${tr('particles')}</label><select id="density">${[12000,24000,48000,72000,90000].map(n=>`<option value="${n}" ${state.look.particles===n?'selected':''}>${n.toLocaleString(language)}</option>`).join('')}</select><div class="setting-divider"></div>${slider('silhouetteFill',.01)}${slider('outline',.1)}${slider('detail')}`;
+    if(tab==='timing')return `<p class="panel-copy">${tr('timingHint')}</p><div class="duration-list">${state.order.map((id,i)=>`<label class="duration-row"><span><small>${String(i+1).padStart(2,'0')}</small>${escape(title(id))}</span><input type="number" data-duration="${id}" min="3" max="600" step="1" value="${state.durations[id]}" aria-label="${escape(title(id))} · ${tr('duration')} (${tr('seconds')})" ${cueTimer.running?'disabled':''}><small>s</small></label>`).join('')}</div>`;
     return `<label class="field-label" for="device">${tr('device')}</label><div class="device-row"><select id="device"><option value="">${tr('defaultCamera')}</option>${devices.map((d,i)=>`<option value="${escape(d.deviceId)}" ${selectedDevice===d.deviceId?'selected':''}>${escape(d.label||`${tr('cameraNumber')} ${i+1}`)}</option>`).join('')}</select><button class="icon-button" data-action="refresh" aria-label="${tr('refresh')}" title="${tr('refresh')}">↻</button></div><label class="switch-row">${tr('refine')}<input type="checkbox" id="refine" ${refine?'checked':''} ${status.phase==='live'||status.phase==='loading'?'disabled':''}></label><p class="panel-copy">${tr('startHint')}</p><div class="setting-divider"></div><h3>${tr('calibration')}</h3><p class="panel-copy">${tr('cropHint')}</p>${(['left','right','top','bottom'] as const).map(k=>`<label class="slider-label" for="crop-${k}"><span>${tr(k)}</span><output id="crop-value-${k}">${Math.round(state.calibration[k]*100)}%</output></label><input id="crop-${k}" data-crop="${k}" type="range" min="${k==='right'||k==='bottom'?.25:0}" max="${k==='left'||k==='top'?.75:1}" step=".01" value="${state.calibration[k]}">`).join('')}<button class="text-button" data-action="reset-crop">↺ ${tr('resetCrop')}</button>`;
   }
+  function autoCueMarkup(){return `<div class="auto-cues"><div><span class="eyebrow">${tr('timedCues')}</span><span id="timer-status" role="status"></span></div><output id="timer-countdown" class="countdown">00:30</output><button data-action="timer-toggle" class="small-button"></button><button class="icon-button" data-action="timer-reset" aria-label="${tr('timerReset')}" title="${tr('timerReset')}">↺</button></div>`;}
   function render() {
     document.documentElement.lang=language;document.title='AILIN · '+tr('console');
     root.innerHTML=`<header class="header"><a class="brand" href="/control" aria-label="AILIN Entangled"><span class="brand-symbol">◎</span><span>AILIN <em>ENTANGLED</em></span></a><span class="header-caption">${tr('console')}</span><div class="header-actions"><div class="language" role="group" aria-label="${tr('language')}"><button data-language="en" class="${language==='en'?'active':''}" aria-pressed="${language==='en'}">EN</button><button data-language="es" class="${language==='es'?'active':''}" aria-pressed="${language==='es'}">ES</button></div><button class="projection-button" data-action="projection">↗ <span>${tr('projection')}</span></button></div></header>
     <main class="workspace"><aside class="sequence"><div class="section-heading"><div><p class="eyebrow">01 / ${tr('scenes')}</p><p class="muted small">${tr('scenesSub')}</p></div><span class="count">17</span></div><div class="scene-list" role="list" aria-label="${tr('scenes')}">${state.order.map((id,i)=>{const scene=sceneById.get(id)!;return `<button role="listitem" class="scene ${armed===id?'selected':''} ${state.sceneId===id?'is-live':''}" data-scene="${id}" aria-label="${i+1}. ${escape(title(id))}" ${state.sceneId===id?'aria-current="true"':''}><span class="scene-number">${String(i+1).padStart(2,'0')}</span>${scene.image?`<img src="${scene.image}" alt="" loading="lazy">`:'<span class="body-icon">♧</span>'}<span class="scene-name">${escape(title(id))}<small>${state.sceneId===id?tr('live'):id==='silhouette'?tr('finale'):armed===id?tr('armed'):''}</small></span><span class="scene-dot"></span></button>`;}).join('')}</div><div class="sequence-footer"><label class="field-label" for="scene-name">${tr('rename')}</label><div class="rename-row"><input id="scene-name" maxlength="48" value="${escape(title(armed))}"><button class="icon-button" data-action="up" aria-label="${tr('up')}" ${armed==='silhouette'?'disabled':''}>↑</button><button class="icon-button" data-action="down" aria-label="${tr('down')}" ${armed==='silhouette'?'disabled':''}>↓</button></div></div></aside>
     <section class="program"><div class="monitor-heading"><p class="eyebrow">02 / ${tr('preview')}</p><span id="projection-status" class="connection"></span></div><div id="preview-slot" class="preview-shell"></div><div class="monitor-caption"><span><i class="live-dot"></i> <b id="program-title">${escape(title(state.sceneId))}</b></span><span class="mono" id="fps">— FPS</span></div><div class="cue-deck"><div class="cue-info"><span class="eyebrow">${tr('cue')} ${String(state.order.indexOf(armed)+1).padStart(2,'0')}</span><strong>${escape(title(armed))}</strong></div><div class="cue-buttons"><button class="icon-button" data-action="previous" aria-label="${tr('previous')}">←</button><button class="go-button" data-action="go">${tr('go')} <span>↵</span></button><button class="icon-button" data-action="next" aria-label="${tr('next')}">→</button></div></div><div class="transport"><button data-action="freeze" class="${state.freeze?'engaged':''}" aria-pressed="${state.freeze}">${state.freeze?'▶':'Ⅱ'} ${tr(state.freeze?'resume':'freeze')} <kbd>P</kbd></button><button data-action="blackout" class="${state.blackout?'blackout-active':''}" aria-pressed="${state.blackout}">● ${tr(state.blackout?'restore':'blackout')} <kbd>B</kbd></button></div>
     <section class="input-panel"><div class="input-visual"><div id="camera-slot"></div><span class="camera-tag">${demo?'DEMO':tr('local')}</span></div><div class="input-info"><p class="eyebrow">${tr('input')}</p><p id="tracking-label" class="tracking-label"></p><div class="joint-grid">${(['leftHand','rightHand','leftFoot','rightFoot'] as const).map(k=>`<span id="joint-${k}" class="joint"><i></i>${tr(k)}</span>`).join('')}</div><div class="camera-actions"><button class="small-button" data-action="camera">${tr(status.phase==='live'||status.phase==='loading'?'stop':'start')}</button><label class="demo-toggle"><input id="demo" type="checkbox" ${demo?'checked':''}>${tr('demo')}</label></div></div></section><p class="status-message ${status.phase==='error'?'error':''}" id="status-message" role="status"></p><p class="help-text">${tr('help')}</p><div class="notice" id="notice" role="status">${escape(notice||graphicsError)}</div></section>
-    <aside class="controls"><div class="section-heading"><p class="eyebrow">03 / ${tr('setup')}</p></div><div class="tabs" role="tablist">${(['movement','appearance','camera'] as const).map(k=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}" class="${tab===k?'active':''}">${tr(k)}</button>`).join('')}</div><div class="settings" role="tabpanel">${settings()}</div><div class="show-files"><button data-action="export">↓ ${tr('export')}</button><button data-action="import">↑ ${tr('import')}</button><input id="import-file" type="file" accept="application/json,.json" hidden aria-label="${tr('importHint')}"></div><p class="saved-note">${tr('saved')}</p></aside></main><footer><span>AILIN / ENTANGLED</span><span>${tr('shortcut')}</span><span>v1.0</span></footer>`;
+    <aside class="controls"><div class="section-heading"><p class="eyebrow">03 / ${tr('setup')}</p></div><div class="tabs" role="tablist">${(['movement','atmosphere','appearance','camera','timing'] as const).map(k=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}" class="${tab===k?'active':''}">${tr(k)}</button>`).join('')}</div><div class="settings" role="tabpanel">${settings()}</div><div class="show-files"><button data-action="export">↓ ${tr('export')}</button><button data-action="import">↑ ${tr('import')}</button><input id="import-file" type="file" accept="application/json,.json" hidden aria-label="${tr('importHint')}"></div><p class="saved-note">${tr('saved')}</p></aside></main><footer><span>AILIN / ENTANGLED</span><span>${tr('shortcut')}</span><span>v1.1</span></footer>`;
+    root.querySelector('.transport')!.insertAdjacentHTML('afterend',autoCueMarkup());
+    if(tab!=='camera'&&tab!=='timing'){
+      const settingsPanel=root.querySelector('.settings')!;
+      settingsPanel.insertAdjacentHTML('afterbegin',`<div class="live-preset"><span>${tr('editLive')}</span><strong>${escape(title(state.sceneId))}</strong></div>`);
+      settingsPanel.insertAdjacentHTML('beforeend',`<p class="preset-note">${tr('sceneSaved')}</p>${state.sceneId==='silhouette'?`<p class="preset-note">${tr('particleOnly')}</p>`:''}<div class="preset-actions"><button class="text-button" data-action="reset-look">↺ ${tr('reset')}</button><button class="text-button" data-action="copy-look">${tr('copyAll')}</button></div>`);
+    }
     root.querySelector('#preview-slot')!.append(stageHost);root.querySelector('#camera-slot')!.append(cameraHost);
     if(!preview)try{preview=new StageRenderer(stageHost,state,true,message=>{graphicsError=message;});}catch(e){graphicsError=tr('support')+' '+String(e);}
     preview?.canvas.setAttribute('aria-label',language==='es'?'Visuales de la función en vivo':'Live performance visuals');
     if(lastFrame)drawTracking(lastFrame);updateStats();
   }
   function updateStats(){
+    const next=cueTimer.tick(state,performance.now());
+    if(next){activateScene(state,next);armed=next;broadcast();render();return;}
+    const held=cueTimer.running&&(state.freeze||state.blackout);
+    const paused=!cueTimer.running&&!cueTimer.finished&&cueTimer.remaining<state.durations[state.sceneId];
+    const timerStatus=root.querySelector('#timer-status');
+    if(timerStatus)timerStatus.textContent=tr(cueTimer.finished?'timerFinished':held?'timerHeld':cueTimer.running?'timerRunning':paused?'timerPaused':'timerManual');
+    const countdown=root.querySelector('#timer-countdown');
+    const remaining=Math.ceil(cueTimer.remaining);
+    if(countdown)countdown.textContent=`${String(Math.floor(remaining/60)).padStart(2,'0')}:${String(remaining%60).padStart(2,'0')}`;
+    const timerButton=root.querySelector('[data-action="timer-toggle"]');
+    if(timerButton){timerButton.textContent=tr(cueTimer.running?'timerPause':paused?'timerResume':'timerStart');timerButton.setAttribute('aria-pressed',String(cueTimer.running));}
+    root.querySelectorAll<HTMLInputElement>('[data-duration]').forEach(input=>input.disabled=cueTimer.running);
     const live=performance.now()-heartbeatAt<3000&&heartbeatAt>0;
     const conn=root.querySelector('#projection-status');if(conn){conn.textContent=tr(live?'connected':'disconnected');conn.classList.toggle('connected',live);}
     const fps=root.querySelector('#fps');if(fps)fps.textContent=`${live?stageFps:preview?.fps||0} FPS`;
@@ -88,7 +119,7 @@ export function mountController(root: HTMLElement) {
   }
   async function refreshDevices(redraw=true){try{devices=await tracker.devices();if(redraw)render();}catch{notice=tr('failed');}}
   function stopDemo(){demo=false;clearInterval(demoTimer);demoTimer=0;}
-  function go(){state.sceneId=armed;broadcast();render();}
+  function go(){activateScene(state,armed);cueTimer.reset(state);broadcast();render();}
   function select(offset:number){const index=state.order.indexOf(armed);armed=state.order[Math.max(0,Math.min(state.order.length-1,index+offset))];render();root.querySelector(`[data-scene="${armed}"]`)?.scrollIntoView({block:'nearest'});}
   root.addEventListener('click',event=>{
     const button=(event.target as HTMLElement).closest<HTMLElement>('button');if(!button)return;
@@ -99,12 +130,15 @@ export function mountController(root: HTMLElement) {
       case 'projection': { const popup=window.open(`/stage?session=${session}`,'ailin-projection','popup,width=1280,height=720');if(!popup)notice=tr('popup');break; }
       case 'go':go();return;
       case 'previous':select(-1);return;case 'next':select(1);return;
-      case 'up':case 'down':state.order=reorderScene(state.order,armed,button.dataset.action==='up'?-1:1);broadcast();render();return;
+      case 'up':case 'down':cueTimer.pause();state.order=reorderScene(state.order,armed,button.dataset.action==='up'?-1:1);broadcast();render();return;
       case 'blackout':state.blackout=!state.blackout;broadcast();render();return;
-      case 'freeze':state.freeze=!state.freeze;broadcast();render();return;
+      case 'freeze':toggleFreeze(state);broadcast();render();return;
+      case 'timer-toggle':if(cueTimer.running)cueTimer.pause();else cueTimer.start(state,performance.now());render();return;
+      case 'timer-reset':cueTimer.reset(state);render();return;
       case 'camera':if(status.phase==='live'||status.phase==='loading'){tracker.stop();status={phase:'idle',message:''};render();}else{stopDemo();void tracker.start(selectedDevice,refine);}return;
       case 'refresh':void refreshDevices();return;
-      case 'reset-look':state.look=defaultState().look;broadcast();render();return;
+      case 'reset-look':state.look=defaultLook();broadcast();render();return;
+      case 'copy-look':copyLookToAll(state);notice=tr('copiedAll');broadcast();render();return;
       case 'reset-crop':state.calibration=defaultState().calibration;broadcast();render();return;
       case 'export':{const blob=new Blob([JSON.stringify({app:'ailin-entangled',...state},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ailin-show.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);break;}
       case 'import':(root.querySelector('#import-file') as HTMLInputElement).click();break;
@@ -113,7 +147,7 @@ export function mountController(root: HTMLElement) {
   });
   root.addEventListener('input',event=>{
     const input=event.target as HTMLInputElement;
-    if(input.dataset.look){const key=input.dataset.look as keyof Look;state.look[key]=Number(input.value);root.querySelector(`#value-${key}`)!.textContent=format(state.look[key]);broadcast();}
+    if(input.dataset.look){const key=input.dataset.look as NumericLookKey;state.look[key]=Number(input.value);root.querySelector(`#value-${key}`)!.textContent=lookValue(key);broadcast();}
     if(input.dataset.crop){const key=input.dataset.crop as 'left'|'right'|'top'|'bottom';let value=Number(input.value);const c=state.calibration;
       if(key==='left')value=Math.min(value,c.right-.2);if(key==='right')value=Math.max(value,c.left+.2);if(key==='top')value=Math.min(value,c.bottom-.2);if(key==='bottom')value=Math.max(value,c.top+.2);
       c[key]=value;input.value=String(value);root.querySelector(`#crop-value-${key}`)!.textContent=Math.round(value*100)+'%';broadcast();if(lastFrame)drawTracking(lastFrame);}
@@ -124,6 +158,12 @@ export function mountController(root: HTMLElement) {
     if(input.id==='refine')refine=input.checked;
     if(input.id==='device')selectedDevice=input.value;
     if(input.id==='density'){state.look.particles=Number(input.value);broadcast();}
+    if(input.id==='response'&&(input.value==='attract'||input.value==='repel')){state.look.response=input.value;broadcast();}
+    if(input.dataset.duration){
+      const id=input.dataset.duration,value=Number(input.value);
+      state.durations[id]=Math.max(3,Math.min(600,Number.isFinite(value)?Math.round(value):30));input.value=String(state.durations[id]);
+      if(id===state.sceneId)cueTimer.reset(state);broadcast();updateStats();
+    }
     if(input.id==='scene-name'){
       const name=input.value.trim();if(name)state.labels[armed]=name;else delete state.labels[armed];broadcast();
       const label=root.querySelector(`[data-scene="${armed}"] .scene-name`);
@@ -135,16 +175,16 @@ export function mountController(root: HTMLElement) {
       if(input.checked){tracker.stop();status={phase:'idle',message:''};demo=true;demoTimer=window.setInterval(()=>onFrame(demoFrame(performance.now())),1000/24);}else stopDemo();render();
     }
     if(input.id==='import-file'&&input.files?.[0]){
-      try{const raw=JSON.parse(await input.files[0].text());if(raw.app!=='ailin-entangled'||raw.version!==1)throw new Error();state=sanitizeState(raw);armed=state.sceneId;broadcast();notice=tr('imported');}catch{notice=tr('invalid');}render();
+      try{const raw=JSON.parse(await input.files[0].text());if(raw.app!=='ailin-entangled'||![1,2].includes(raw.version))throw new Error();state=sanitizeState(raw);armed=state.sceneId;cueTimer.reset(state);broadcast();notice=tr('imported');}catch{notice=tr('invalid');}render();
     }
   });
   const keyboard=(event:KeyboardEvent)=>{
     if(event.ctrlKey||event.metaKey||event.altKey||['INPUT','SELECT','TEXTAREA','BUTTON'].includes((event.target as HTMLElement).tagName))return;
-    if(event.code==='Space'){event.preventDefault();go();}else if(event.code==='ArrowRight'){event.preventDefault();select(1);}else if(event.code==='ArrowLeft'){event.preventDefault();select(-1);}else if(event.code==='KeyB'){state.blackout=!state.blackout;broadcast();render();}else if(event.code==='KeyP'){state.freeze=!state.freeze;broadcast();render();}
+    if(event.code==='Space'){event.preventDefault();go();}else if(event.code==='ArrowRight'){event.preventDefault();select(1);}else if(event.code==='ArrowLeft'){event.preventDefault();select(-1);}else if(event.code==='KeyB'){state.blackout=!state.blackout;broadcast();render();}else if(event.code==='KeyP'){toggleFreeze(state);broadcast();render();}
   };
   window.addEventListener('keydown',keyboard);
   bus.onmessage=({data}:MessageEvent<BusMessage>)=>{
-    if(data.type==='hello'){bus.postMessage({type:'state',state});if(lastFrame)bus.postMessage({type:'frame',frame:lastFrame});}
+    if(data.type==='hello'){bus.postMessage({type:'state',state});const frame=state.freeze?projectedFrame:lastFrame;if(frame)bus.postMessage({type:'frame',frame});}
     if(data.type==='heartbeat'){heartbeatAt=performance.now();stageFps=data.fps;if(data.error)graphicsError=data.error;}
   };
   render();broadcast();void refreshDevices(false);const statsTimer=setInterval(updateStats,200);

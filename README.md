@@ -30,6 +30,37 @@ npm run preview
 
 The **EN / ES** toggle translates the operator interface and default scene titles. Custom scene names remain as entered. Show settings and language persist in this browser. Rehearsal motion is explicitly simulated and can be used without a webcam; it does not validate live tracking.
 
+## Drift, trails and scene looks
+
+Every scene now remembers its own movement and appearance settings automatically. The settings panel names the **live scene being edited**. Selecting another cue only arms it; press GO to activate it and recall its look. **Reset this scene** resets only the live scene. **Apply look to all scenes** copies the current look to every scene as a starting point.
+
+The **Atmosphere** tab contains:
+
+| Control | Range and behavior |
+| --- | --- |
+| Particle drift | 0–100%, default 20%. Smooth floating around the source geometry. Maximum offset is 3% of stage height per axis. Zero removes idle drift. |
+| Breathing amount | 0–100%, default 10%. Slow expansion/contraction, up to ±3.5% at maximum. Zero disables breathing. |
+| Breathing cycle | 4–30 seconds, default 10 seconds. |
+| Motion trails | 0–2.5 seconds, default 0.3 seconds. Time for a previous pixel to fade to 10% brightness. Zero removes trails. |
+| Scene transition | Morph duration, saved per scene. |
+
+Drift and breathing work without a camera and use a shared phase in the console and projection. They affect particle scenes. Trails also work on the silhouette; they clear on a scene change, blackout, or lost silhouette signal. Freeze holds the rendered frame and idle-motion clock, then resumes smoothly.
+
+The **Movement** tab adds **Hand intensity** and **Foot intensity** (0–3×). They multiply the main movement intensity; zero disables that limb group. **Dancer response** chooses **Repel / scatter** or **Attract / gather**. Attraction reverses the radial force while preserving motion following and the spring return to geometry.
+
+Camera alignment stays global so switching scenes does not change the stage mapping. Version 2 show exports include every scene look and duration. Older version 1 exports remain importable: their global look is copied to all scenes before adding the new controls at their defaults.
+
+## Timed scene sequence
+
+In the **Timing** tab, set each scene's duration (3–600 seconds, default 30). Use the transport beneath the GO controls to **Start sequence**, pause/resume, or reset the timer for the live scene.
+
+- Playback starts with the live scene and follows the visible cue order. The silhouette remains last, and playback stops after its duration. There is no automatic loop.
+- GO immediately switches to the selected scene and returns to manual control. Reordering cues pauses playback. Merely selecting a cue does not interrupt playback.
+- Blackout and freeze hold the countdown; releasing them continues it. Duration inputs are locked while playback is running. Pause first to edit them; changing the current duration resets its countdown.
+- Reloading the page or importing a show always leaves the timer stopped. A delayed/backgrounded timer never skips multiple cues at once.
+
+The console must remain open. Rehearse timings with the actual performance computer; a browser timer is not an external timecode system.
+
 | Key | Action |
 | --- | --- |
 | Left / right arrow | Select previous / next cue |
@@ -65,7 +96,7 @@ With the dev server running and Chrome installed:
 npm run test:browser
 ```
 
-Core tests cover sanitization, finale ordering, camera mapping, confidence gating, hand association and motion filtering. Browser tests cover cueing, language, controls, persistence, responsive layout, projection communication, blackout and the demo finale. They also load every geometry asset.
+Core tests cover sanitization/migration, independent scene looks, finale ordering, camera mapping, confidence gating, hand association, motion filtering, drift bounds, shared freeze timing, trail decay and the cue transport. Browser tests cover the bilingual controls, show export/import, per-scene recall, persistence, responsive layout, live projection drift and exact freeze-frame behavior, timed/manual cue transitions, blackout and the demo finale. They also load every geometry asset.
 
 Two optional integration tests exercise the **actual MediaPipe models** and **getUserMedia pipeline**. Set `TEST_POSE_IMAGE` to the absolute path of a full-body JPEG and/or `TEST_CAMERA_VIDEO` to an absolute path to a full-body Y4M video. The latter uses Chrome's synthetic capture device, never the physical webcam. For example, PowerShell:
 
@@ -84,6 +115,8 @@ Tests were exercised using Google's public `mediapipe-assets/pose.jpg` fixture. 
 3. Pulsa **Abrir proyección**, mueve esa ventana al proyector y haz doble clic para pantalla completa. Mantén la consola abierta y visible en la otra pantalla.
 4. Elige una escena y pulsa **ACTIVAR ESCENA**. Usa los controles de intensidad, radio y retorno para ajustar la respuesta. Las escenas de partículas van primero; la silueta siempre queda al final.
 5. **Oscurecer** apaga la salida inmediatamente; **Congelar** mantiene el movimiento. Exporta la función para guardar una copia. **Movimiento de ensayo** utiliza datos simulados.
+6. En **Atmósfera**, ajusta la deriva, la respiración y las estelas. En **Movimiento**, elige atraer o repeler y controla manos y pies por separado. Cada escena recuerda su apariencia; el panel indica la escena en vivo que estás editando.
+7. En **Tiempos**, define los segundos de cada escena y pulsa **Iniciar secuencia**. La secuencia termina después de la silueta. **ACTIVAR ESCENA** devuelve el control manual; oscurecer y congelar mantienen la cuenta atrás en espera. Al recargar, la secuencia siempre queda detenida.
 
 La cámara se procesa en este equipo, sin subir vídeo. La precisión depende de la luz, las oclusiones, el encuadre y el rendimiento: prueba la coreografía con el equipo real antes de la función.
 

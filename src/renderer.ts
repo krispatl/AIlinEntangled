@@ -3,12 +3,14 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { sceneById } from './state';
 import { AdaptiveFilter, projectPoint } from './tracking-math';
+import { motionTime, driftX, driftY, breathingScale, trailDecay, limbGain, radialDirection } from './motion';
 import type { ShowState, TrackingFrame } from './types';
 
 type Design = { positions: Float32Array; light: Float32Array; aspect: number };
-type Force = { x: number; y: number; px: number; py: number; vx: number; vy: number; stamp: number };
+type Force = { x: number; y: number; px: number; py: number; vx: number; vy: number; stamp: number; hand: boolean };
 const spriteVertex = `
 attribute float aLight; attribute float aSeed;
 uniform float uSize; uniform float uRatio; varying float vLight;
@@ -45,6 +47,7 @@ export class StageRenderer {
   private gl: THREE.WebGLRenderer; private scene = new THREE.Scene();
   private camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
   private composer: EffectComposer; private bloom: UnrealBloomPass;
+  private trails: AfterimagePass; private clearTrails=true; private rendered=false; private resizeDirty=true;
   private geometry = new THREE.BufferGeometry(); private points: THREE.Points;
   private material: THREE.ShaderMaterial; private silhouette: THREE.Mesh;
   private silhouetteMaterial: THREE.ShaderMaterial;
@@ -54,8 +57,8 @@ export class StageRenderer {
   private targets: Float32Array = new Float32Array(); private from = new Float32Array();
   private lights = new Float32Array(); private count = 0; private aspect = 16 / 9;
   private cache = new Map<string, Promise<Design>>(); private loadId = 0;
-  private state: ShowState; private currentScene = ''; private transitionAt = 0;
-  private silhouetteMix = 0; private lastTime = 0; private startTime = performance.now();
+  private state: ShowState; private currentScene = ''; private transitionElapsed = 0;
+  private silhouetteMix = 0; private lastTime = 0;
   private animation = 0; private resizeObserver: ResizeObserver; private disposed = false;
   private forces = new Map<string, Force>();
   private filters = new Map<string, [AdaptiveFilter, AdaptiveFilter]>();
@@ -65,6 +68,7 @@ export class StageRenderer {
   constructor(private host: HTMLElement, initial: ShowState, private preview = false,
     private onError: (message: string) => void = () => {}) {
     this.state = initial;
+    this.silhouetteMix=initial.sceneId==='silhouette'?1:0;
     this.gl = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
     this.canvas = this.gl.domElement; this.canvas.setAttribute('role', 'img');
     this.canvas.setAttribute('aria-label', document.documentElement.lang==='es'?'Visuales de la función en vivo':'Live performance visuals');
@@ -85,6 +89,7 @@ export class StageRenderer {
     });
     this.silhouette = new THREE.Mesh(new THREE.PlaneGeometry(2,2),this.silhouetteMaterial); this.silhouette.position.z=-0.1; this.scene.add(this.silhouette);
     this.composer = new EffectComposer(this.gl); this.composer.addPass(new RenderPass(this.scene,this.camera));
+    this.trails=new AfterimagePass(0);this.composer.addPass(this.trails);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(640,360), 0.45, 0.15, 0.65);
     this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(host); this.resize();
@@ -102,6 +107,7 @@ export class StageRenderer {
     const ratio=this.preview ? 1 : Math.min(devicePixelRatio,1.5);
     this.gl.setPixelRatio(ratio);this.gl.setSize(width,height,false);this.composer.setPixelRatio(ratio);this.composer.setSize(width,height);
     this.material.uniforms.uRatio.value=ratio;this.silhouette.scale.x=this.aspect;
+    this.clearTrails=true;this.resizeDirty=true;
   }
   applyState(state: ShowState) {
     this.state=state;
@@ -109,6 +115,7 @@ export class StageRenderer {
     if(key!==this.calibrationKey){this.calibrationKey=key;this.forces.clear();this.filters.clear();}
     const count=this.preview ? Math.min(36000,state.look.particles) : state.look.particles;
     if (this.currentScene!==state.sceneId || this.count!==count) {
+      this.clearTrails=true;
       this.currentScene=state.sceneId;
       if (sceneById.get(state.sceneId)?.kind==='particles') void this.loadDesign(state.sceneId,count);
     }
@@ -119,9 +126,11 @@ export class StageRenderer {
     u.uCrop.value.set(c.left,c.right,c.top,c.bottom);u.uMirror.value=c.mirror?1:0;
     u.uFill.value=state.look.silhouetteFill;u.uOutline.value=state.look.outline;u.uDetail.value=state.look.detail;
     this.canvas.style.opacity=state.blackout?'0':'1';
+    if(state.blackout||state.look.trails===0)this.clearTrails=true;
   }
   receiveFrame(frame: TrackingFrame) {
-    if (this.state.freeze) return;
+    if (this.state.freeze && this.receivedAt>0) return;
+    if (this.state.freeze) this.rendered=false;
     this.receivedAt=performance.now();
     const present=new Set<string>();
     for (const joint of frame.joints) {
@@ -134,7 +143,7 @@ export class StageRenderer {
       const dt=old?Math.max(.01,(frame.timestamp-old.stamp)/1000):1;
       const valid=old&&dt<.3;
       this.forces.set(joint.name,{x:sx,y:sy,px:valid?old.x:sx,py:valid?old.y:sy,
-        vx:valid?Math.max(-6,Math.min(6,(sx-old.x)/dt)):0,vy:valid?Math.max(-6,Math.min(6,(sy-old.y)/dt)):0,stamp:frame.timestamp});
+        vx:valid?Math.max(-6,Math.min(6,(sx-old.x)/dt)):0,vy:valid?Math.max(-6,Math.min(6,(sy-old.y)/dt)):0,stamp:frame.timestamp,hand:joint.name.endsWith('Hand')});
     }
     for (const key of this.forces.keys()) if (!present.has(key)) {this.forces.delete(key);this.filters.delete(key);}
     if (frame.mask.length!==frame.width*frame.height || frame.gray.length!==frame.mask.length) return;
@@ -187,52 +196,62 @@ export class StageRenderer {
         const seeds=Float32Array.from({length:count},(_,i)=>(i*.61803398875)%1);
         this.geometry.setAttribute('aSeed',new THREE.BufferAttribute(seeds,1));this.geometry.setDrawRange(0,count);
       }else{this.from=this.positions.slice();this.lights.set(design.light);this.geometry.attributes.aLight.needsUpdate=true;}
-      this.transitionAt=performance.now();this.ready=true;
+      if(!this.ready)this.rendered=false;
+      this.transitionElapsed=0;this.clearTrails=true;this.ready=true;
     }catch(error){this.error=String(error);this.onError(this.error);}
   }
   private animate = (now: number) => {
     if(this.disposed)return;
     this.animation=requestAnimationFrame(this.animate);
-    const dt=Math.min(.035,Math.max(.001,(now-this.lastTime)/1000));this.lastTime=now;
+    const frameDt=Math.max(.001,(now-this.lastTime)/1000),dt=Math.min(.035,frameDt);this.lastTime=now;
     if(++this.frameNumber%30===0){this.fps=Math.round(30000/(now-this.fpsTime||1));this.fpsTime=now;}
     if(this.error||this.state.blackout)return;
+    if(this.state.freeze&&this.rendered&&!this.resizeDirty)return;
+    const time=motionTime(this.state);
     const silhouetteTarget=sceneById.get(this.state.sceneId)?.kind==='silhouette'?1:0;
     if(!this.state.freeze)this.silhouetteMix+=(silhouetteTarget-this.silhouetteMix)*Math.min(1,dt*4/this.state.look.transition);
     const fresh=this.state.freeze||now-this.receivedAt<350;
+    if(silhouetteTarget&&!fresh)this.clearTrails=true;
     this.bloom.strength=this.state.look.bloom*(1-this.silhouetteMix*.65);
     this.material.uniforms.uOpacity.value=1-this.silhouetteMix;
     this.silhouetteMaterial.uniforms.uOpacity.value=fresh?this.silhouetteMix:0;
     this.points.visible=this.silhouetteMix<.999;this.silhouette.visible=this.silhouetteMix>.001;
     if(!this.state.freeze&&this.count&&this.points.visible){
-      const elapsed=(now-this.transitionAt)/1000/this.state.look.transition;
+      // Morph time is local to this transition; importing a show can reset the shared idle clock.
+      this.transitionElapsed=Math.min(5,this.transitionElapsed+frameDt);
+      const elapsed=this.transitionElapsed/this.state.look.transition;
       const progress=Math.min(1,elapsed),ease=progress*progress*(3-2*progress);
       const springs=this.state.look.returnSpeed*5,drag=Math.exp(-dt*4.5),radius=this.state.look.radius,r2=radius*radius;
-      const forces=fresh?[...this.forces.values()]:[];
-      const intensity=this.state.look.scatter;
-      const time=(now-this.startTime)/1000;
+      const forces=fresh?[...this.forces.values()].map(f=>({...f,gain:limbGain(this.state.look,f.hand)})):[];
+      const direction=radialDirection(this.state.look.response);
+      const breathing=breathingScale(time,this.state.look.breathing,this.state.look.breathPeriod);
+      const drift=this.state.look.drift;
+      const seeds=this.geometry.attributes.aSeed.array;
       for(let i=0;i<this.count;i++){
         const p=i*3,v=i*2;let x=this.positions[p],y=this.positions[p+1],vx=this.velocities[v],vy=this.velocities[v+1];
-        const hx=this.from[p]+(this.targets[p]-this.from[p])*ease;
-        const hy=this.from[p+1]+(this.targets[p+1]-this.from[p+1])*ease;
+        const baseX=this.from[p]+(this.targets[p]-this.from[p])*ease;
+        const baseY=this.from[p+1]+(this.targets[p+1]-this.from[p+1])*ease;
+        const hx=baseX*breathing+(drift?driftX(baseY,seeds[i],time,drift):0);
+        const hy=baseY*breathing+(drift?driftY(baseX,seeds[i],time,drift):0);
         vx+=(hx-x)*springs*dt;vy+=(hy-y)*springs*dt;
         for(const f of forces){
           const dx=f.x-f.px,dy=f.y-f.py,len=dx*dx+dy*dy;
           const t=len>1e-6?Math.max(0,Math.min(1,((x-f.px)*dx+(y-f.py)*dy)/len)):0;
           const rx=x-f.px-dx*t,ry=y-f.py-dy*t,d2=rx*rx+ry*ry;
           if(d2<r2){const d=Math.sqrt(d2)+.008,influence=(1-d2/r2)**2;
-            const push=influence*intensity*(.35+Math.min(4,Math.hypot(f.vx,f.vy)))*dt*12;
-            vx+=push*(rx/d+f.vx*.12);vy+=push*(ry/d+f.vy*.12);
+            const push=influence*f.gain*(.35+Math.min(4,Math.hypot(f.vx,f.vy)))*dt*12;
+            vx+=push*(direction*rx/d+f.vx*.12);vy+=push*(direction*ry/d+f.vy*.12);
           }
         }
-        vx+=Math.sin(time*.45+i*1.618)*.012*dt;vy+=Math.cos(time*.4+i*2.414)*.012*dt;
         vx=Math.max(-5,Math.min(5,vx))*drag;vy=Math.max(-5,Math.min(5,vy))*drag;
         this.positions[p]=x+vx*dt;this.positions[p+1]=y+vy*dt;this.velocities[v]=vx;this.velocities[v+1]=vy;
       }
       this.geometry.attributes.position.needsUpdate=true;
     }
-    this.composer.render();
+    this.trails.uniforms.damp.value=this.clearTrails?0:trailDecay(this.state.look.trails,this.state.freeze?0:frameDt);
+    this.composer.render();this.clearTrails=false;this.rendered=true;this.resizeDirty=false;
   };
   dispose(){this.disposed=true;cancelAnimationFrame(this.animation);this.resizeObserver.disconnect();this.geometry.dispose();
     this.material.dispose();this.silhouette.geometry.dispose();this.silhouetteMaterial.dispose();this.maskTexture.dispose();this.grayTexture.dispose();
-    this.bloom.dispose();this.composer.dispose();this.gl.dispose();this.canvas.remove();}
+    this.trails.dispose();this.bloom.dispose();this.composer.dispose();this.gl.dispose();this.canvas.remove();}
 }
